@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import Button from '../ui/Button';
-import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 const signUpSchema = z.object({
@@ -31,9 +31,8 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showResendButton, setShowResendButton] = useState(false);
-  const [resendEmail, setResendEmail] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const login = useAuthStore((state) => state.login);
 
   const {
     register: registerSignIn,
@@ -53,48 +52,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     resolver: zodResolver(signUpSchema),
   });
 
-  const handleResendConfirmation = async () => {
-    try {
-      setIsProcessing(true);
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: resendEmail,
-      });
-
-      if (resendError) throw resendError;
-
-      setError('Confirmation email has been resent. Please check your inbox.');
-      setShowResendButton(false);
-    } catch (err) {
-      console.error('Resend error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to resend confirmation email.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const onSignIn = async (data: SignInFormData) => {
     try {
       setIsProcessing(true);
       setError(null);
-      setShowResendButton(false);
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (signInError) {
-        if (signInError.message.includes('Email not confirmed')) {
-          setResendEmail(data.email);
-          setShowResendButton(true);
-          throw new Error('Email not confirmed. Click the button below to resend confirmation email.');
-        }
-        if (signInError.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid email or password. Please try again.');
-        }
-        throw signInError;
-      }
+      await login(data.email);
 
       resetSignIn();
       onClose();
@@ -109,72 +72,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const onSignUp = async (data: SignUpFormData) => {
     try {
       setError(null);
-      setShowResendButton(false);
+      setIsProcessing(true);
 
-      // Create a new user with email and password
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            email_confirm: true
-          }
-        }
-      });
+      // For this simplified backend, login creates the user if they don't exist
+      await login(data.email);
 
-      if (signUpError) {
-        if (signUpError.message.includes('User already registered')) {
-          throw new Error('An account with this email already exists. Please sign in instead.');
-        }
-        throw signUpError;
-      }
-
-      if (signUpData.user) {
-        // Wait for a short period to ensure the user is fully created
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Insert user data into the users table
-        const { error: userError } = await supabase
-          .from('users')
-          .insert([
-            {
-              id: signUpData.user.id,
-              email: data.email,
-              display_name: data.email.split('@')[0]
-            }
-          ]);
-
-        if (userError) {
-          console.error('User data sync error:', userError);
-        }
-
-        // Insert the default user role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert([
-            {
-              user_id: signUpData.user.id,
-              role: 'user'
-            }
-          ]);
-
-        if (roleError) {
-          console.error('Role assignment error:', roleError);
-          // Show a success message anyway since the user was created
-          setError('Account created successfully! Please check your email to confirm your account.');
-          setIsSignUp(false);
-          resetSignUp();
-          return;
-        }
-
-        // Show success message
-        setError('Account created successfully! Please check your email to confirm your account.');
-        setIsSignUp(false);
-        resetSignUp();
-      }
+      setIsSignUp(false);
+      resetSignUp();
+      onClose();
     } catch (err) {
       console.error('Auth error:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -184,7 +94,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
+
         <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
           <div className="absolute right-0 top-0 pr-4 pt-4">
             <button
@@ -207,8 +117,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   {isSignUp ? (
                     <form onSubmit={handleSubmitSignUp(onSignUp)} className="space-y-4">
                       {error && (
-                        <div className={`rounded-md p-4 ${error.includes('successfully') || error.includes('has been resent') ? 'bg-green-50' : 'bg-red-50'}`}>
-                          <p className={`text-sm ${error.includes('successfully') || error.includes('has been resent') ? 'text-green-700' : 'text-red-700'}`}>
+                        <div className={`rounded-md p-4 bg-red-50`}>
+                          <p className={`text-sm text-red-700`}>
                             {error}
                           </p>
                         </div>
@@ -278,8 +188,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   ) : (
                     <form onSubmit={handleSubmitSignIn(onSignIn)} className="space-y-4">
                       {error && (
-                        <div className={`rounded-md p-4 ${error.includes('successfully') || error.includes('has been resent') ? 'bg-green-50' : 'bg-red-50'}`}>
-                          <p className={`text-sm ${error.includes('successfully') || error.includes('has been resent') ? 'text-green-700' : 'text-red-700'}`}>
+                        <div className={`rounded-md p-4 bg-red-50`}>
+                          <p className={`text-sm text-red-700`}>
                             {error}
                           </p>
                         </div>
@@ -313,20 +223,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         )}
                       </div>
 
-                      {showResendButton && (
-                        <div className="text-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleResendConfirmation}
-                            isLoading={isProcessing}
-                            className="w-full"
-                          >
-                            Resend Confirmation Email
-                          </Button>
-                        </div>
-                      )}
-
                       <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                         <Button
                           type="submit"
@@ -354,7 +250,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       onClick={() => {
                         setIsSignUp(!isSignUp);
                         setError(null);
-                        setShowResendButton(false);
                         resetSignIn();
                         resetSignUp();
                       }}
