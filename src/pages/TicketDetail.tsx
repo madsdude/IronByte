@@ -6,8 +6,8 @@ import { StatusBadge, PriorityBadge, CategoryBadge } from '../components/ui/Badg
 import Button from '../components/ui/Button';
 import { ArrowLeft, Clock, XCircle, CheckCircle, User, Play } from 'lucide-react';
 import { formatDate, formatTime } from '../utils/dateUtils';
-import { supabase } from '../lib/supabase';
-import { useUserStore } from '../store/userStore';
+import { api } from '../lib/api';
+// import { useUserStore } from '../store/userStore'; // assuming userStore is refactored
 import CommentSection from '../components/tickets/CommentSection';
 import { TicketComment } from '../types';
 
@@ -22,7 +22,7 @@ export default function TicketDetail() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAssignmentConfirmation, setShowAssignmentConfirmation] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; email: string; display_name?: string }>>([]);
-  const { users, fetchUser } = useUserStore();
+  // const { users, fetchUser } = useUserStore();
   const [selectedUserId, setSelectedUserId] = useState<string>(ticket?.assigned_to || '');
   const [comments, setComments] = useState<TicketComment[]>([]);
 
@@ -30,107 +30,66 @@ export default function TicketDetail() {
     const fetchComments = async () => {
       if (!id) return;
 
-      const { data, error } = await supabase
-        .from('ticket_comments')
-        .select('id, ticket_id, user_id, content, created_at, updated_at')
-        .eq('ticket_id', id)
-        .order('created_at', { ascending: true });
+      try {
+        const data = await api.get(`/tickets/${id}/comments`);
 
-      if (error) {
+        setComments(data.map((comment: any) => ({
+          id: comment.id,
+          ticketId: comment.ticket_id,
+          userId: comment.user_id,
+          content: comment.content,
+          createdAt: comment.created_at,
+          updatedAt: comment.updated_at
+        })));
+
+      } catch (error) {
         console.error('Error fetching comments:', error);
-        return;
       }
-
-      setComments(data.map(comment => ({
-        id: comment.id,
-        ticketId: comment.ticket_id,
-        userId: comment.user_id,
-        content: comment.content,
-        createdAt: comment.created_at,
-        updatedAt: comment.updated_at
-      })));
-
-      // Fetch user info for each comment author
-      data.forEach(comment => {
-        if (comment.user_id) {
-          fetchUser(comment.user_id);
-        }
-      });
     };
 
     fetchComments();
-  }, [id, fetchUser]);
+  }, [id]);
 
   const handleAddComment = async (content: string) => {
     if (!user || !id) return;
 
-    const { data, error } = await supabase
-      .from('ticket_comments')
-      .insert([
-        {
-          ticket_id: id,
-          user_id: user.id,
-          content
-        }
-      ])
-      .select('id, ticket_id, user_id, content, created_at, updated_at')
-      .single();
+    try {
+      const data = await api.post(`/tickets/${id}/comments`, { content });
 
-    if (error) {
+      const newComment: TicketComment = {
+        id: data.id,
+        ticketId: data.ticket_id,
+        userId: data.user_id,
+        content: data.content,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+
+      setComments(prev => [...prev, newComment]);
+    } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
     }
-
-    const newComment: TicketComment = {
-      id: data.id,
-      ticketId: data.ticket_id,
-      userId: data.user_id,
-      content: data.content,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    };
-
-    setComments(prev => [...prev, newComment]);
-    fetchUser(data.user_id);
   };
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, display_name')
-        .order('display_name');
-
-      if (error) {
+      try {
+        const data = await api.get('/users');
+        setAvailableUsers(data || []);
+      } catch (error) {
         console.error('Error fetching users:', error);
-        return;
       }
-
-      setAvailableUsers(data || []);
-      
-      // Fetch user info for each user
-      data?.forEach(user => {
-        fetchUser(user.id);
-      });
     };
 
     fetchUsers();
-  }, [fetchUser]);
+  }, []);
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      if (user) {
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
-        setIsAdmin(data?.role === 'admin');
-      }
-    };
-    
-    checkUserRole();
+    // simplified admin check
+    if (user && (user as any).role === 'admin') {
+      setIsAdmin(true);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -161,25 +120,13 @@ export default function TicketDetail() {
     if (!ticket || !selectedUserId) return;
 
     try {
-      const { error: updateError } = await supabase
-        .from('tickets')
-        .update({ assigned_to: selectedUserId })
-        .eq('id', ticket.id);
-
-      if (updateError) throw updateError;
+      await updateTicket(ticket.id, { assigned_to: selectedUserId });
 
       // Find the assigned user from the availableUsers array
       const assignedUser = availableUsers.find(user => user.id === selectedUserId);
 
       // Update the local state with the assigned user data
       if (assignedUser) {
-        const ticketWithUser = {
-          ...ticket,
-          assigned_to: selectedUserId,
-          assigned_to_user: assignedUser
-        };
-
-        updateTicket(ticket.id, ticketWithUser);
         setShowAssignmentConfirmation(true);
         setTimeout(() => setShowAssignmentConfirmation(false), 3000);
       }
@@ -207,8 +154,8 @@ export default function TicketDetail() {
     );
   }
 
-  const assignedUser = users[ticket.assigned_to || ''];
-  const submitter = users[ticket.submittedBy];
+  const assignedUser = availableUsers.find(u => u.id === ticket.assigned_to);
+  const submitter = availableUsers.find(u => u.id === ticket.submittedBy);
   const canAssign = user && ticket.status !== 'closed' && ticket.status !== 'resolved';
 
   return (
@@ -292,7 +239,7 @@ export default function TicketDetail() {
                       {Object.entries(ticket.additionalFields).map(([key, value]) => (
                         <div key={key}>
                           <dt className="text-sm text-gray-500 capitalize">{key.replace('_', ' ')}</dt>
-                          <dd className="text-sm text-gray-900">{value}</dd>
+                          <dd className="text-sm text-gray-900">{value as string}</dd>
                         </div>
                       ))}
                     </dl>
@@ -308,12 +255,12 @@ export default function TicketDetail() {
                         <>
                           <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                             <span className="text-sm font-medium text-blue-800">
-                              {submitter?.displayName?.charAt(0) || submitter?.email?.charAt(0) || '?'}
+                              {submitter?.display_name?.charAt(0) || submitter?.email?.charAt(0) || '?'}
                             </span>
                           </div>
                           <div className="ml-3">
                             <p className="text-sm font-medium text-gray-900">
-                              {submitter?.displayName || submitter?.email || 'Unknown User'}
+                              {submitter?.display_name || submitter?.email || 'Unknown User'}
                             </p>
                             <p className="text-sm text-gray-700">{submitter?.email}</p>
                           </div>
@@ -388,12 +335,12 @@ export default function TicketDetail() {
                     <div className="ml-2 flex items-center">
                       <div className="h-6 w-6 rounded-full bg-blue-100 border border-white flex items-center justify-center mr-2">
                         <span className="text-xs font-medium text-blue-800">
-                          {assignedUser.displayName?.charAt(0) || assignedUser.email.charAt(0)}
+                          {assignedUser.display_name?.charAt(0) || assignedUser.email.charAt(0)}
                         </span>
                       </div>
                       <div>
                         <span className="text-blue-600 font-medium">
-                          {assignedUser.displayName || assignedUser.email}
+                          {assignedUser.display_name || assignedUser.email}
                         </span>
                       </div>
                     </div>
@@ -419,13 +366,13 @@ export default function TicketDetail() {
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-full bg-blue-200 border-2 border-white flex items-center justify-center">
                       <span className="text-sm font-medium text-blue-800">
-                        {assignedUser.displayName?.charAt(0) || assignedUser.email.charAt(0)}
+                        {assignedUser.display_name?.charAt(0) || assignedUser.email.charAt(0)}
                       </span>
                     </div>
                     <div className="ml-3">
                       <h4 className="text-sm font-medium text-blue-900">Currently assigned to</h4>
                       <p className="text-sm font-medium text-blue-700">
-                        {assignedUser.displayName || assignedUser.email}
+                        {assignedUser.display_name || assignedUser.email}
                       </p>
                       <p className="text-sm text-blue-600">{assignedUser.email}</p>
                     </div>

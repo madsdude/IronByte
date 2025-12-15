@@ -4,8 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import Button from '../ui/Button';
-import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
+// import { api } from '../../lib/api';
 
 const settingsSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -39,56 +39,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [displayName, setDisplayName] = React.useState<string>('');
 
   React.useEffect(() => {
-    const fetchUserDetails = async () => {
-      if (user) {
-        try {
-          // Fetch user role
-          const { data: roleData, error: roleError } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          
-          if (roleError) {
-            console.error('Error fetching user role:', roleError);
-          } else {
-            // If no role is found, create a default 'user' role
-            if (!roleData) {
-              const { error: insertError } = await supabase
-                .from('user_roles')
-                .insert([{ user_id: user.id, role: 'user' }]);
-              
-              if (insertError) {
-                console.error('Error creating default user role:', insertError);
-              } else {
-                setUserRole('user');
-              }
-            } else {
-              setUserRole(roleData.role);
-              setIsAdmin(roleData.role === 'admin');
-            }
-          }
-
-          // Fetch display name
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('display_name')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (userError) {
-            console.error('Error fetching user display name:', userError);
-          } else if (userData) {
-            setDisplayName(userData.display_name || '');
-          }
-        } catch (err) {
-          console.error('Error in fetchUserDetails:', err);
-          setError('Failed to fetch user details');
-        }
-      }
-    };
-    
-    fetchUserDetails();
+    if (user) {
+        // Mock data
+        setUserRole('admin');
+        setIsAdmin(true);
+        setDisplayName(user.email?.split('@')[0] || '');
+    }
   }, [user]);
 
   const {
@@ -110,41 +66,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       setError(null);
       setSuccess(null);
 
-      // Update email if changed
-      if (data.email !== user?.email) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          email: data.email,
-        });
-        if (updateError) throw updateError;
-      }
+      // Mock update
+      console.log('Update settings:', data);
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Update password if provided
-      if (data.newPassword) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: data.newPassword,
-        });
-        if (passwordError) throw passwordError;
-      }
-
-      // Update display name
-      const { error: displayNameError } = await supabase
-        .from('users')
-        .update({ display_name: data.displayName })
-        .eq('id', user?.id);
-
-      if (displayNameError) throw displayNameError;
-
-      // Update role if admin and role changed
-      if (isAdmin && data.role && data.role !== userRole) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role: data.role })
-          .eq('user_id', user?.id);
-
-        if (roleError) throw roleError;
-      }
-
-      setSuccess('Settings updated successfully');
+      setSuccess('Settings updated successfully (Mock)');
       setDisplayName(data.displayName);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -157,7 +83,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
+
         <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
           <div className="absolute right-0 top-0 pr-4 pt-4">
             <button

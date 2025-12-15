@@ -12,7 +12,6 @@ import KnowledgeBasePage from './pages/KnowledgeBase';
 import TicketDetail from './pages/TicketDetail';
 import PublicTicket from './pages/PublicTicket';
 import { useTicketStore } from './store/ticketStore';
-import { supabase } from './lib/supabase';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -29,24 +28,13 @@ function App() {
       // Initial fetch
       fetchTickets();
 
-      // Subscribe to changes
-      const channel = supabase
-        .channel('tickets-channel')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'tickets'
-          },
-          () => {
-            fetchTickets();
-          }
-        )
-        .subscribe();
+      // Poll for updates
+      const interval = setInterval(() => {
+        fetchTickets();
+      }, 5000);
 
       return () => {
-        supabase.removeChannel(channel);
+        clearInterval(interval);
       };
     }
   }, [fetchTickets, user]);
@@ -56,7 +44,7 @@ function App() {
       <Routes>
         {/* Public route */}
         <Route path="/submit-ticket" element={<PublicTicket />} />
-        
+
         {/* Protected routes */}
         <Route
           path="/*"

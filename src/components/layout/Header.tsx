@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Menu, Search, X, LogIn, Settings } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
 import AuthModal from '../auth/AuthModal';
 import SettingsModal from '../settings/SettingsModal';
@@ -47,11 +46,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
     try {
       // Clear local storage first
       clearUser();
-      // Then attempt to sign out from Supabase
-      await supabase.auth.signOut();
     } catch (error) {
       console.error('Sign out error:', error);
-      // Even if the server request fails, we've already cleared local state
     }
   };
 
@@ -90,7 +86,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
                   <Menu className="block h-6 w-6" aria-hidden="true" />
                 )}
               </button>
-              
+
               {/* Logo */}
               <div className="flex-shrink-0 hidden lg:flex items-center">
                 <h1 className="text-lg font-semibold text-slate-900">
@@ -98,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
                 </h1>
               </div>
             </div>
-            
+
             {/* Center - Search */}
             <div className={`flex-1 flex justify-center px-2 lg:px-0 ${isSearchOpen ? 'block' : 'hidden md:block'}`}>
               <div className="w-full max-w-lg lg:max-w-xs relative">
@@ -116,7 +112,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             {/* Right side */}
             <div className="flex items-center space-x-4">
               {/* Mobile search button */}
@@ -181,7 +177,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Profile dropdown */}
                   <div className="relative flex-shrink-0">
                     <div>
@@ -213,7 +209,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
         </div>
       </header>
 
-      <AuthModal 
+      <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
