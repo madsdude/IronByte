@@ -1,36 +1,37 @@
 services:
   postgres:
-    image: postgres:15-alpine
-    restart: always
+    image: postgres:15
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: ticket_system
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: csm
     volumes:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
   pgadmin:
     image: dpage/pgadmin4
-    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5050:80"
+      - "8080:80"
     depends_on:
       - postgres
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    restart: always
+    build: ./backend
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/ticket_system
-      - PORT=3000
+      DATABASE_URL: postgres://postgres:password@postgres:5432/csm
     depends_on:
       - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
