@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import Button from '../components/ui/Button';
 import { Ticket, Send, LogIn } from 'lucide-react';
 import AuthModal from '../components/auth/AuthModal';
@@ -91,7 +91,7 @@ export default function PublicTicket() {
       // Prepare additional fields
       const additionalFields: Record<string, string> = {
         company: data.company,
-        contact_email: data.email // Store email as plain text in additional fields
+        contact_email: data.email
       };
 
       if (serviceRequestFields[selectedCategory as keyof typeof serviceRequestFields]) {
@@ -102,22 +102,15 @@ export default function PublicTicket() {
         });
       }
 
-      // Create the ticket without a user account
-      const { error: ticketError } = await supabase
-        .from('tickets')
-        .insert([
-          {
-            title: data.title,
-            description: data.description,
-            status: 'new',
-            priority: 'medium',
-            category: data.category,
-            submitted_by: null, // No user account for public tickets
-            additional_fields: additionalFields
-          }
-        ]);
-
-      if (ticketError) throw ticketError;
+      await api.post('/tickets', {
+        title: data.title,
+        description: data.description,
+        status: 'new',
+        priority: 'medium',
+        category: data.category,
+        submitted_by: null, // No user account for public tickets
+        additional_fields: additionalFields
+      });
 
       setSuccess(true);
       reset();
@@ -330,7 +323,7 @@ export default function PublicTicket() {
         </div>
       </div>
 
-      <AuthModal 
+      <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />

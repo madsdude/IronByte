@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Team, TeamMember } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 interface TeamState {
   teams: Team[];
@@ -26,12 +26,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   fetchTeams: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
+      const data = await api.get('/teams');
       set({ teams: data });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch teams' });
@@ -43,12 +38,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   fetchTeamMembers: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('team_members')
-        .select('*')
-        .order('created_at');
-
-      if (error) throw error;
+      const data = await api.get('/team-members');
       set({ teamMembers: data });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch team members' });
@@ -60,14 +50,8 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   addTeam: async (team) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('teams')
-        .insert([team])
-        .select()
-        .single();
-
-      if (error) throw error;
-      set(state => ({ teams: [...state.teams, data] }));
+      const newTeam = await api.post('/teams', team);
+      set(state => ({ teams: [...state.teams, newTeam] }));
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to add team' });
     } finally {
@@ -78,16 +62,9 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   updateTeam: async (id, updates) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('teams')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const updatedTeam = await api.patch(`/teams/${id}`, updates);
       set(state => ({
-        teams: state.teams.map(team => team.id === id ? data : team)
+        teams: state.teams.map(team => team.id === id ? updatedTeam : team)
       }));
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update team' });
@@ -99,12 +76,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   deleteTeam: async (id) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('teams')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/teams/${id}`);
       set(state => ({
         teams: state.teams.filter(team => team.id !== id)
       }));
@@ -118,14 +90,12 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   addTeamMember: async (teamMember) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('team_members')
-        .insert([teamMember])
-        .select()
-        .single();
-
-      if (error) throw error;
-      set(state => ({ teamMembers: [...state.teamMembers, data] }));
+      const newMember = await api.post('/team-members', {
+          team_id: teamMember.teamId,
+          user_id: teamMember.userId,
+          role: teamMember.role
+      });
+      set(state => ({ teamMembers: [...state.teamMembers, newMember] }));
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to add team member' });
     } finally {
@@ -136,13 +106,16 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   removeTeamMember: async (teamId, userId) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('team_id', teamId)
-        .eq('user_id', userId);
+      // DELETE with body or query params
+      // Our simple API client might not support body in delete method correctly if using fetch defaults depending on impl,
+      // but standard fetch allows it. Let's assume server supports it or params.
+      // I updated server to support query params too if body empty.
+      // But standard fetch body in DELETE is discouraged.
+      // Let's rely on my updated server.js which checks query params if body properties are missing?
+      // Actually my server.js checks `req.body.team_id || req.query.team_id`.
+      // So I'll try to pass via query params to be safe.
+      await api.delete(`/team-members?team_id=${teamId}&user_id=${userId}`);
 
-      if (error) throw error;
       set(state => ({
         teamMembers: state.teamMembers.filter(
           member => !(member.teamId === teamId && member.userId === userId)
@@ -158,18 +131,14 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   updateTeamMemberRole: async (teamId, userId, role) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('team_members')
-        .update({ role })
-        .eq('team_id', teamId)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const updatedMember = await api.patch('/team-members', {
+          team_id: teamId,
+          user_id: userId,
+          role
+      });
       set(state => ({
         teamMembers: state.teamMembers.map(member =>
-          member.teamId === teamId && member.userId === userId ? data : member
+          member.teamId === teamId && member.userId === userId ? updatedMember : member
         )
       }));
     } catch (error) {

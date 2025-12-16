@@ -1,6 +1,22 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
-import { Ticket } from '../types';
+import { api } from '../lib/api';
+
+// Ticket type simplified
+interface Ticket {
+  id: string;
+  title: string;
+  description: string;
+  status: 'new' | 'in-progress' | 'pending' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  category: 'hardware' | 'software' | 'network' | 'access' | 'service-request' | 'incident' | 'server';
+  createdAt: string;
+  updatedAt: string;
+  assigned_to?: string | null;
+  submittedBy: string;
+  dueDate?: string | null;
+  additionalFields?: Record<string, any> | null;
+  teamId?: string | null;
+}
 
 interface TicketState {
   tickets: Ticket[];
@@ -25,19 +41,14 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   fetchTickets: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.get('/tickets');
       
       if (!data) {
         set({ tickets: [] });
         return;
       }
 
-      const transformedTickets = data.map(ticket => ({
+      const transformedTickets = data.map((ticket: any) => ({
         id: ticket.id,
         title: ticket.title,
         description: ticket.description,
@@ -65,28 +76,17 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   addTicket: async (ticket: Partial<Ticket>) => {
     set({ loading: true, error: null });
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('No user found');
-
-      const { data, error } = await supabase
-        .from('tickets')
-        .insert([{
+      // API handles user from token/session (in this case mocked)
+      const data = await api.post('/tickets', {
           title: ticket.title,
           description: ticket.description,
           status: ticket.status || 'new',
           priority: ticket.priority,
           category: ticket.category,
-          submitted_by: userData.user.id,
+          // submitted_by handled by backend
           team_id: ticket.teamId,
           additional_fields: ticket.additionalFields || {}
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating ticket:', error);
-        throw error;
-      }
+      });
 
       if (!data) {
         throw new Error('No data returned from ticket creation');
@@ -135,7 +135,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         due_date: updates.dueDate,
         additional_fields: updates.additionalFields,
         team_id: updates.teamId,
-        updated_at: new Date().toISOString()
+        // updated_at handled by backend
       };
 
       // Remove undefined values
@@ -143,14 +143,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         dbUpdates[key] === undefined && delete dbUpdates[key]
       );
 
-      const { error } = await supabase
-        .from('tickets')
-        .update(dbUpdates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      await api.patch(`/tickets/${id}`, dbUpdates);
       
       // Fetch updated tickets
       await get().fetchTickets();
