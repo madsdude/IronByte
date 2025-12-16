@@ -43,7 +43,7 @@ services:
       - .:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:3000/api
+      - VITE_PROXY_TARGET=http://backend:3000
     depends_on:
       - backend
 
