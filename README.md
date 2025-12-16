@@ -5,7 +5,7 @@ Dette projekt er en CSM (Customer Service Management) applikation migreret fra S
 ## Forudsætninger
 
 *   [Docker](https://www.docker.com/) og Docker Compose
-*   [Node.js](https://nodejs.org/) (til at køre frontend lokalt)
+*   [Node.js](https://nodejs.org/) version 18 eller nyere (til at køre frontend lokalt)
 
 ## Installation og Start
 
