@@ -532,7 +532,6 @@ export default function TicketDetail() {
         </div>
 
         <CommentSection
-          ticketId={ticket.id}
           comments={comments}
           onAddComment={handleAddComment}
           onDeleteTicket={handleDeleteTicket}

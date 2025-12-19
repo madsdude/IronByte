@@ -70,7 +70,7 @@ const ProblemDetail: React.FC = () => {
                     </Button>
                 ) : (
                     <div className="flex gap-2">
-                        <Button variant="primary" onClick={() => navigate('/changes')} iconLeft={<Calendar className="h-4 w-4" />}>
+                        <Button variant="primary" onClick={() => navigate('/changes', { state: { createForProblem: id } })} iconLeft={<Calendar className="h-4 w-4" />}>
                             Create Change
                         </Button>
                         <Button variant="danger" onClick={async () => {

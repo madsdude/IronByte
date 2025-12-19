@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useChangeStore } from '../../store/changeStore';
 import { Plus, ArrowRight, Calendar, AlertTriangle } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import { format } from 'date-fns';
 
@@ -9,8 +9,19 @@ import CreateChangeModal from './CreateChangeModal';
 
 export default function ChangeList() {
     const { changes, fetchChanges, loading } = useChangeStore();
-    const navigate = useNavigate();
+    const location = useLocation();
     const [isModalOpen, setIsModalOpen] = React.useState(false);
+    const [linkedProblemId, setLinkedProblemId] = React.useState<string | null>(null);
+
+    useEffect(() => {
+        const state = location.state as { createForProblem?: string };
+        if (state?.createForProblem) {
+            setLinkedProblemId(state.createForProblem);
+            setIsModalOpen(true);
+            // Clear state so it doesn't reopen on refresh? distinct from history.replace
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     useEffect(() => {
         fetchChanges();
@@ -98,7 +109,12 @@ export default function ChangeList() {
                     </ul>
                 </div>
             )}
-            <CreateChangeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+            <CreateChangeModal
+                isOpen={isModalOpen}
+                onClose={() => { setIsModalOpen(false); setLinkedProblemId(null); }}
+                linkedProblemId={linkedProblemId}
+            />
         </div>
     );
 }

@@ -7,14 +7,12 @@ import Button from '../ui/Button';
 import { Send, Trash2 } from 'lucide-react';
 
 interface CommentSectionProps {
-  ticketId: string;
   comments: TicketComment[];
   onAddComment: (content: string) => Promise<void>;
   onDeleteTicket?: () => void;
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({
-  ticketId,
   comments,
   onAddComment,
   onDeleteTicket

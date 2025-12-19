@@ -12,10 +12,10 @@ interface TicketListProps {
   emptyMessage?: string;
 }
 
-const TicketList: React.FC<TicketListProps> = ({ 
-  tickets, 
-  title, 
-  emptyMessage = "No tickets found" 
+const TicketList: React.FC<TicketListProps> = ({
+  tickets,
+  title,
+  emptyMessage = "No tickets found"
 }) => {
   const { users, fetchUser } = useUserStore();
 
@@ -38,7 +38,7 @@ const TicketList: React.FC<TicketListProps> = ({
           {title}
         </h3>
       </div>
-      
+
       {tickets.length === 0 ? (
         <div className="p-6 text-center text-gray-500">
           {emptyMessage}
@@ -71,7 +71,7 @@ const TicketList: React.FC<TicketListProps> = ({
                       {ticket.assigned_to && users[ticket.assigned_to] && (
                         <div className="flex items-center text-sm text-gray-500">
                           <User className="h-4 w-4 text-gray-400 mr-1" />
-                          <span>Assigned to: {users[ticket.assigned_to].displayName || users[ticket.assigned_to].email}</span>
+                          <span>Assigned to: {users[ticket.assigned_to]?.displayName || users[ticket.assigned_to]?.email}</span>
                         </div>
                       )}
                     </div>
@@ -87,7 +87,7 @@ const TicketList: React.FC<TicketListProps> = ({
           ))}
         </ul>
       )}
-      
+
       <div className="bg-gray-50 px-4 py-3 sm:px-6 border-t border-gray-200">
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-700">

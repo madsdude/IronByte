@@ -7,10 +7,11 @@ import { api } from '../../lib/api';
 interface CreateChangeModalProps {
     isOpen: boolean;
     onClose: () => void;
+    linkedProblemId?: string | null;
 }
 
-const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }) => {
-    const createChange = useChangeStore(state => state.createChange);
+const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose, linkedProblemId }) => {
+    const { createChange, linkProblem } = useChangeStore();
     const [loading, setLoading] = useState(false);
     const [users, setUsers] = useState<any[]>([]);
     const [formData, setFormData] = useState({
@@ -48,7 +49,12 @@ const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }
         };
 
         try {
-            await createChange(payload as any);
+            const newChange = await createChange(payload as any);
+
+            if (linkedProblemId) {
+                await linkProblem(newChange.id, linkedProblemId);
+            }
+
             onClose();
             // Reset form (optional)
         } catch (error: any) {

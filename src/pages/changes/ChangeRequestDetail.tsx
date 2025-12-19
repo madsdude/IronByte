@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button';
 import { ArrowLeft, CheckCircle, XCircle, Calendar, Server, Play } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function ChangeDetail() {
+export default function ChangeRequestDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { change, fetchChange, updateChange, approveChange, linkCI, unlinkCI, loading } = useChangeStore();

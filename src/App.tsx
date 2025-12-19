@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -16,7 +16,7 @@ import ConfigurationItems from './pages/ConfigurationItems';
 import ProblemList from './pages/problems/ProblemList';
 import ProblemDetail from './pages/problems/ProblemDetail';
 import ChangeList from './pages/changes/ChangeList';
-import ChangeDetail from './pages/changes/ChangeDetail';
+import ChangeRequestDetail from './pages/changes/ChangeRequestDetail';
 import { useTicketStore } from './store/ticketStore';
 import { useAuthStore } from './store/authStore';
 
@@ -75,7 +75,7 @@ function App() {
                       <Route path="/problems" element={<ProblemList />} />
                       <Route path="/problems/:id" element={<ProblemDetail />} />
                       <Route path="/changes" element={<ChangeList />} />
-                      <Route path="/changes/:id" element={<ChangeDetail />} />
+                      <Route path="/changes/:id" element={<ChangeRequestDetail />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </main>
