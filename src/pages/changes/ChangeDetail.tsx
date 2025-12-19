@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useChangeStore } from '../../store/changeStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCIStore } from '../../store/ciStore';
 import Button from '../../components/ui/Button';
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Calendar, Server, Play, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Calendar, Server, Play } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ChangeDetail() {
@@ -31,7 +31,7 @@ export default function ChangeDetail() {
 
     const handleApprove = async () => {
         if (confirm('Are you sure you want to approve this change?')) {
-            await approveChange(change.id);
+            await approveChange(change.id, user?.id);
         }
     };
 

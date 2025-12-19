@@ -15,7 +15,7 @@ interface ChangeStore {
     linkCI: (changeId: string, ciId: string) => Promise<void>;
     unlinkCI: (changeId: string, ciId: string) => Promise<void>;
     linkProblem: (changeId: string, problemId: string) => Promise<void>;
-    approveChange: (id: string) => Promise<void>; // Simplified logic, just an update for now
+    approveChange: (id: string, userId?: string) => Promise<void>;
 }
 
 export const useChangeStore = create<ChangeStore>((set, get) => ({
@@ -88,8 +88,7 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
         get().fetchChange(changeId);
     },
 
-    approveChange: async (id) => {
-        // In a real app this would call a specific approve endpoint, but we use update for now
-        await get().updateChange(id, { status: 'approved' });
+    approveChange: async (id, userId) => {
+        await get().updateChange(id, { status: 'approved', approved_by: userId });
     }
 }));
