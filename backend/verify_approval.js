@@ -76,11 +76,18 @@ async function run() {
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
         // Create
+        console.log('Using Requestor ID as dummy Assignee:', userId);
         const change = await request('POST', '/changes', {
-            title: 'Backend Verification Test',
-            description: 'Testing approval',
+            title: 'Full Payload Test',
+            description: 'Testing dates and assignee',
             type: 'standard',
-            priority: 'low'
+            priority: 'low',
+            risk: 'low',
+            impact: 'Test impact',
+            backout_plan: 'Test backout',
+            scheduled_start: '2025-12-20T10:00',
+            scheduled_end: '2025-12-20T12:00',
+            assigned_approver_id: userId // Assign to self for test
         }, headers);
         console.log('Change created:', change.id);
 

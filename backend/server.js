@@ -86,6 +86,7 @@ const initDb = async () => {
         scheduled_end TIMESTAMP WITH TIME ZONE,
         requested_by UUID REFERENCES users(id),
         approved_by UUID REFERENCES users(id),
+        assigned_approver_id UUID REFERENCES users(id),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -901,10 +902,11 @@ app.post('/api/problems/:id/resolve', async (req, res) => {
 app.get('/api/changes', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.*, u.display_name as requestor_name, a.display_name as approver_name
+      SELECT c.*, u.display_name as requestor_name, a.display_name as approver_name, aa.display_name as assigned_approver_name
       FROM changes c
       LEFT JOIN users u ON c.requested_by = u.id
       LEFT JOIN users a ON c.approved_by = a.id
+      LEFT JOIN users aa ON c.assigned_approver_id = aa.id
       ORDER BY c.created_at DESC
     `);
     res.json(result.rows);
@@ -916,14 +918,16 @@ app.get('/api/changes', async (req, res) => {
 app.post('/api/changes', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const { title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end } = req.body;
+    const { title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end, assigned_approver_id } = req.body;
+
+    const approverId = assigned_approver_id === '' ? null : assigned_approver_id;
 
     const result = await pool.query(
       `INSERT INTO changes (
         title, description, type, priority, risk, impact, backout_plan, 
-        scheduled_start, scheduled_end, requested_by, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'requested') RETURNING *`,
-      [title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end, req.user.id]
+        scheduled_start, scheduled_end, requested_by, status, assigned_approver_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'requested', $11) RETURNING *`,
+      [title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end, req.user.id, approverId]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -936,10 +940,11 @@ app.get('/api/changes/:id', async (req, res) => {
     const { id } = req.params;
     const result = await pool.query(`
       SELECT c.*, u.display_name as requestor_name, u.email as requestor_email,
-             a.display_name as approver_name
+             a.display_name as approver_name, aa.display_name as assigned_approver_name
       FROM changes c
       LEFT JOIN users u ON c.requested_by = u.id
       LEFT JOIN users a ON c.approved_by = a.id
+      LEFT JOIN users aa ON c.assigned_approver_id = aa.id
       WHERE c.id = $1
     `, [id]);
 
@@ -975,7 +980,7 @@ app.put('/api/changes/:id', async (req, res) => {
     const updates = req.body;
 
     // Whitelist fields
-    const allowedFields = ['title', 'description', 'type', 'status', 'priority', 'risk', 'impact', 'backout_plan', 'scheduled_start', 'scheduled_end', 'approved_by'];
+    const allowedFields = ['title', 'description', 'type', 'status', 'priority', 'risk', 'impact', 'backout_plan', 'scheduled_start', 'scheduled_end', 'approved_by', 'assigned_approver_id'];
     const keys = Object.keys(updates).filter(key => allowedFields.includes(key));
 
     if (keys.length === 0) return res.json({});

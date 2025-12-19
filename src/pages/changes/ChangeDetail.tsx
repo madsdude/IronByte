@@ -138,12 +138,16 @@ export default function ChangeDetail() {
                             <dd className="mt-1 text-sm text-gray-900">{change.requestor_name || 'Unknown'}</dd>
                         </div>
 
-                        {change.approver_name && (
-                            <div className="sm:col-span-1">
-                                <dt className="text-sm font-medium text-gray-500">Approved By</dt>
-                                <dd className="mt-1 text-sm text-gray-900">{change.approver_name}</dd>
-                            </div>
-                        )}
+                        <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-gray-500">Approved By</dt>
+                            <dd className="mt-1 text-sm text-gray-900">{change.approver_name}</dd>
+                        </div>
+
+
+                        <div className="sm:col-span-1">
+                            <dt className="text-sm font-medium text-gray-500">Assigned Approver</dt>
+                            <dd className="mt-1 text-sm text-gray-900">{change.assigned_approver_name || 'Unassigned'}</dd>
+                        </div>
 
                         <div className="sm:col-span-2">
                             <dt className="text-sm font-medium text-gray-500">Description</dt>

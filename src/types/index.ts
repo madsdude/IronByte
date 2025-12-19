@@ -90,4 +90,6 @@ export interface Change {
   updated_at: string;
   requestor_name?: string;
   approver_name?: string;
+  assigned_approver_id?: string;
+  assigned_approver_name?: string;
 }

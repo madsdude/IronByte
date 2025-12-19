@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../../components/ui/Button'; // Adjusted path
 import { X } from 'lucide-react';
 import { useChangeStore } from '../../store/changeStore'; // Adjusted path
+import { api } from '../../lib/api';
 
 interface CreateChangeModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface CreateChangeModalProps {
 const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }) => {
     const createChange = useChangeStore(state => state.createChange);
     const [loading, setLoading] = useState(false);
+    const [users, setUsers] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -20,21 +22,38 @@ const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }
         impact: '',
         backout_plan: '',
         scheduled_start: '',
-        scheduled_end: ''
+        scheduled_end: '',
+        assigned_approver_id: ''
     });
+
+    useEffect(() => {
+        if (isOpen) {
+            api.get('/users').then(setUsers).catch(console.error);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        console.log('Submitting form data:', formData);
+
+        // Sanitize payload
+        const payload = {
+            ...formData,
+            scheduled_start: formData.scheduled_start === '' ? null : formData.scheduled_start,
+            scheduled_end: formData.scheduled_end === '' ? null : formData.scheduled_end,
+            assigned_approver_id: formData.assigned_approver_id === '' ? null : formData.assigned_approver_id
+        };
+
         try {
-            await createChange(formData);
+            await createChange(payload as any);
             onClose();
             // Reset form (optional)
-        } catch (error) {
-            console.error(error);
-            alert('Failed to create change');
+        } catch (error: any) {
+            console.error('Create Change Error:', error);
+            alert(`Failed to create change: ${error.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
@@ -141,6 +160,22 @@ const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }
                                 />
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Assign Approver</label>
+                                <select
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                    value={formData.assigned_approver_id}
+                                    onChange={e => setFormData({ ...formData, assigned_approver_id: e.target.value })}
+                                >
+                                    <option value="">Select an Approver (Optional)</option>
+                                    {users.filter(u => u.role === 'admin' || u.role === 'technician').map(user => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.display_name} ({user.role})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Start Time</label>
@@ -173,7 +208,7 @@ const CreateChangeModal: React.FC<CreateChangeModalProps> = ({ isOpen, onClose }
                                 </Button>
                                 <Button
                                     type="button"
-                                    variant="white"
+                                    variant="secondary"
                                     className="mt-3 w-full sm:mt-0 sm:col-start-1"
                                     onClick={onClose}
                                 >
