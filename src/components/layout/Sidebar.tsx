@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Ticket, Clock, CheckCircle, List, BookOpen, Settings, LogOut, HelpCircle as CircleHelp, XCircle, Users, Server, AlertTriangle } from 'lucide-react';
+import { Home, Ticket, Clock, CheckCircle, List, BookOpen, Settings, LogOut, HelpCircle as CircleHelp, XCircle, Users, Server, AlertTriangle, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 const navigation = [
@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Knowledge Base', href: '/knowledge-base', icon: BookOpen },
   { name: 'Configuration Items', href: '/cis', icon: Server, adminOnly: true },
   { name: 'Problem Management', href: '/problems', icon: AlertTriangle, adminOnly: true },
+  { name: 'Change Management', href: '/changes', icon: Calendar, adminOnly: true },
   { name: 'Users', href: '/users', icon: Users, adminOnly: true },
 ];
 

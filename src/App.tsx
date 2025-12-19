@@ -15,6 +15,8 @@ import UserManagement from './pages/UserManagement';
 import ConfigurationItems from './pages/ConfigurationItems';
 import ProblemList from './pages/problems/ProblemList';
 import ProblemDetail from './pages/problems/ProblemDetail';
+import ChangeList from './pages/changes/ChangeList';
+import ChangeDetail from './pages/changes/ChangeDetail';
 import { useTicketStore } from './store/ticketStore';
 import { useAuthStore } from './store/authStore';
 
@@ -72,6 +74,8 @@ function App() {
                       <Route path="/cis" element={<ConfigurationItems />} />
                       <Route path="/problems" element={<ProblemList />} />
                       <Route path="/problems/:id" element={<ProblemDetail />} />
+                      <Route path="/changes" element={<ChangeList />} />
+                      <Route path="/changes/:id" element={<ChangeDetail />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </main>

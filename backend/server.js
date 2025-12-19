@@ -71,6 +71,36 @@ const initDb = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS changes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        type VARCHAR(50) NOT NULL, -- standard, normal, emergency
+        status VARCHAR(50) DEFAULT 'draft', -- draft, requested, approved, in-progress, completed, failed, cancelled
+        priority VARCHAR(50) DEFAULT 'low',
+        risk VARCHAR(50) DEFAULT 'low',
+        impact TEXT,
+        backout_plan TEXT,
+        scheduled_start TIMESTAMP WITH TIME ZONE,
+        scheduled_end TIMESTAMP WITH TIME ZONE,
+        requested_by UUID REFERENCES users(id),
+        approved_by UUID REFERENCES users(id),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS change_cis (
+        change_id UUID REFERENCES changes(id) ON DELETE CASCADE,
+        ci_id UUID REFERENCES configuration_items(id) ON DELETE CASCADE,
+        PRIMARY KEY (change_id, ci_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS change_problems (
+        change_id UUID REFERENCES changes(id) ON DELETE CASCADE,
+        problem_id UUID REFERENCES problems(id) ON DELETE CASCADE,
+        PRIMARY KEY (change_id, problem_id)
+      );
     `);
     console.log('Database tables verified/created');
   } catch (err) {
@@ -825,39 +855,182 @@ app.delete('/api/problems/:id', async (req, res) => {
 
 
 app.post('/api/problems/:id/resolve', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+
+    // 1. Update Problem status to resolved
+    const problemResult = await client.query(
+      `UPDATE problems 
+       SET status = 'resolved', resolution = 'Resolved via cascade', updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (problemResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    // 2. Find all linked tickets
+    const linkedTickets = await client.query(
+      'SELECT ticket_id FROM problem_tickets WHERE problem_id = $1',
+      [id]
+    );
+
+    // 3. Resolve all linked tickets
+    for (const row of linkedTickets.rows) {
+      await client.query(
+        `UPDATE tickets SET status = 'resolved' WHERE id = $1 AND status != 'closed'`,
+        [row.ticket_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(problemResult.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Change Management API
+app.get('/api/changes', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, u.display_name as requestor_name, a.display_name as approver_name
+      FROM changes c
+      LEFT JOIN users u ON c.requested_by = u.id
+      LEFT JOIN users a ON c.approved_by = a.id
+      ORDER BY c.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/changes', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO changes (
+        title, description, type, priority, risk, impact, backout_plan, 
+        scheduled_start, scheduled_end, requested_by, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'requested') RETURNING *`,
+      [title, description, type, priority, risk, impact, backout_plan, scheduled_start, scheduled_end, req.user.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/changes/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { resolution } = req.body;
+    const result = await pool.query(`
+      SELECT c.*, u.display_name as requestor_name, u.email as requestor_email,
+             a.display_name as approver_name
+      FROM changes c
+      LEFT JOIN users u ON c.requested_by = u.id
+      LEFT JOIN users a ON c.approved_by = a.id
+      WHERE c.id = $1
+    `, [id]);
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Change not found' });
 
-      // Update problem
-      const probRes = await client.query(
-        `UPDATE problems 
-         SET status = 'resolved', resolution = COALESCE($1, resolution), updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $2 RETURNING *`,
-        [resolution, id]
-      );
+    const change = result.rows[0];
 
-      if (probRes.rows.length === 0) throw new Error('Problem not found');
+    // Fetch linked CIs
+    const cis = await pool.query(`
+      SELECT ci.* FROM configuration_items ci
+      JOIN change_cis cc ON ci.id = cc.ci_id
+      WHERE cc.change_id = $1
+    `, [id]);
+    change.cis = cis.rows;
 
-      // Resolve all linked tickets
-      await client.query(`
-        UPDATE tickets 
-        SET status = 'resolved' 
-        WHERE id IN (SELECT ticket_id FROM problem_tickets WHERE problem_id = $1)
-      `, [id]);
+    // Fetch linked Problems
+    const problems = await pool.query(`
+      SELECT p.* FROM problems p
+      JOIN change_problems cp ON p.id = cp.problem_id
+      WHERE cp.change_id = $1
+    `, [id]);
+    change.problems = problems.rows;
 
-      await client.query('COMMIT');
-      res.json(probRes.rows[0]);
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    res.json(change);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/changes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Whitelist fields
+    const allowedFields = ['title', 'description', 'type', 'status', 'priority', 'risk', 'impact', 'backout_plan', 'scheduled_start', 'scheduled_end', 'approved_by'];
+    const keys = Object.keys(updates).filter(key => allowedFields.includes(key));
+
+    if (keys.length === 0) return res.json({});
+
+    const values = keys.map(key => updates[key]);
+    const fields = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+
+    const result = await pool.query(
+      `UPDATE changes SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+      [id, ...values]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Change not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/changes/:id/cis', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ciId } = req.body;
+    await pool.query(
+      'INSERT INTO change_cis (change_id, ci_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [id, ciId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/changes/:id/cis/:ciId', async (req, res) => {
+  try {
+    const { id, ciId } = req.params;
+    await pool.query(
+      'DELETE FROM change_cis WHERE change_id = $1 AND ci_id = $2',
+      [id, ciId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/changes/:id/problems', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { problemId } = req.body;
+    await pool.query(
+      'INSERT INTO change_problems (change_id, problem_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [id, problemId]
+    );
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -2,11 +2,11 @@ export type TicketStatus = 'new' | 'in-progress' | 'pending' | 'resolved' | 'clo
 
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type TicketCategory = 
-  | 'hardware' 
-  | 'software' 
-  | 'network' 
-  | 'access' 
+export type TicketCategory =
+  | 'hardware'
+  | 'software'
+  | 'network'
+  | 'access'
   | 'service-request'
   | 'incident'
   | 'server';
@@ -66,4 +66,28 @@ export interface MetricData {
   value: number;
   change?: number;
   changeType?: 'increase' | 'decrease';
+}
+
+export type ChangeType = 'standard' | 'normal' | 'emergency';
+
+export type ChangeStatus = 'draft' | 'requested' | 'approved' | 'in-progress' | 'completed' | 'failed' | 'cancelled';
+
+export interface Change {
+  id: string;
+  title: string;
+  description: string;
+  type: ChangeType;
+  status: ChangeStatus;
+  priority: TicketPriority;
+  risk: 'low' | 'medium' | 'high';
+  impact: string;
+  backout_plan?: string;
+  scheduled_start?: string;
+  scheduled_end?: string;
+  requested_by?: string;
+  approved_by?: string;
+  created_at: string;
+  updated_at: string;
+  requestor_name?: string;
+  approver_name?: string;
 }

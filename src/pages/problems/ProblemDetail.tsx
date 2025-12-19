@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProblemStore } from '../../store/problemStore';
 import Button from '../../components/ui/Button';
-import { ArrowLeft, CheckCircle, Ticket, AlertTriangle, Link, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Ticket, AlertTriangle, Link, Trash2, Calendar } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 
 const ProblemDetail: React.FC = () => {
@@ -70,6 +70,9 @@ const ProblemDetail: React.FC = () => {
                     </Button>
                 ) : (
                     <div className="flex gap-2">
+                        <Button variant="primary" onClick={() => navigate('/changes')} iconLeft={<Calendar className="h-4 w-4" />}>
+                            Create Change
+                        </Button>
                         <Button variant="danger" onClick={async () => {
                             if (window.confirm('Are you sure you want to delete this problem?')) {
                                 await deleteProblem(id!);
