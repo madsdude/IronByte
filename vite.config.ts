@@ -22,6 +22,9 @@ export default defineConfig(({ mode }) => {
         },
       },
       host: true, // Needed for Docker
+      watch: {
+        usePolling: true,
+      },
     },
   };
 });

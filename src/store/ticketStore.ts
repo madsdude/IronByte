@@ -16,6 +16,13 @@ interface Ticket {
   dueDate?: string | null;
   additionalFields?: Record<string, any> | null;
   teamId?: string | null;
+  cis?: any[];
+  sla_due_at?: string;
+  linked_problem?: {
+    id: string;
+    title: string;
+    status: string;
+  };
 }
 
 interface TicketState {
@@ -23,8 +30,11 @@ interface TicketState {
   loading: boolean;
   error: string | null;
   fetchTickets: () => Promise<void>;
+  fetchTicket: (id: string) => Promise<void>;
   addTicket: (ticket: Partial<Ticket>) => Promise<void>;
   updateTicket: (id: string, updates: Partial<Ticket>) => Promise<void>;
+  linkCI: (ticketId: string, ciId: string) => Promise<void>;
+  unlinkCI: (ticketId: string, ciId: string) => Promise<void>;
   getMetrics: () => {
     openTickets: number;
     resolvedToday: number;
@@ -42,7 +52,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await api.get('/tickets');
-      
+
       if (!data) {
         set({ tickets: [] });
         return;
@@ -61,7 +71,8 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         submittedBy: ticket.submitted_by,
         dueDate: ticket.due_date,
         additionalFields: ticket.additional_fields,
-        teamId: ticket.team_id
+        teamId: ticket.team_id,
+        cis: ticket.cis || []
       }));
 
       set({ tickets: transformedTickets });
@@ -73,19 +84,58 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     }
   },
 
+  fetchTicket: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await api.get(`/tickets/${id}`);
+
+      const transformedTicket = {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        priority: data.priority,
+        category: data.category,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        assigned_to: data.assigned_to_email || data.assigned_to,
+        submittedBy: data.submitted_by_email || data.submitted_by || 'Unknown',
+        dueDate: data.due_date,
+        additionalFields: data.additional_fields,
+        teamId: data.team_id,
+        cis: data.cis || [],
+        linked_problem: data.linked_problem,
+        sla_due_at: data.sla_due_at
+      };
+
+      set((state) => {
+        const index = state.tickets.findIndex(t => t.id === id);
+        if (index >= 0) {
+          const newTickets = [...state.tickets];
+          newTickets[index] = transformedTicket;
+          return { tickets: newTickets, loading: false };
+        } else {
+          return { tickets: [...state.tickets, transformedTicket], loading: false };
+        }
+      });
+    } catch (error: any) {
+      set({ error: error.message, loading: false });
+    }
+  },
+
   addTicket: async (ticket: Partial<Ticket>) => {
     set({ loading: true, error: null });
     try {
       // API handles user from token/session (in this case mocked)
       const data = await api.post('/tickets', {
-          title: ticket.title,
-          description: ticket.description,
-          status: ticket.status || 'new',
-          priority: ticket.priority,
-          category: ticket.category,
-          // submitted_by handled by backend
-          team_id: ticket.teamId,
-          additional_fields: ticket.additionalFields || {}
+        title: ticket.title,
+        description: ticket.description,
+        status: ticket.status || 'new',
+        priority: ticket.priority,
+        category: ticket.category,
+        // submitted_by handled by backend
+        team_id: ticket.teamId,
+        additional_fields: ticket.additionalFields || {}
       });
 
       if (!data) {
@@ -139,12 +189,12 @@ export const useTicketStore = create<TicketState>((set, get) => ({
       };
 
       // Remove undefined values
-      Object.keys(dbUpdates).forEach(key => 
+      Object.keys(dbUpdates).forEach(key =>
         dbUpdates[key] === undefined && delete dbUpdates[key]
       );
 
       await api.patch(`/tickets/${id}`, dbUpdates);
-      
+
       // Fetch updated tickets
       await get().fetchTickets();
     } catch (error: any) {
@@ -155,23 +205,47 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     }
   },
 
+  linkCI: async (ticketId, ciId) => {
+    try {
+      await api.post(`/tickets/${ticketId}/cis`, { ciId });
+      // Reload tickets to get updated CIs
+      await get().fetchTickets();
+    } catch (error: any) {
+      console.error('Failed to link CI', error);
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  unlinkCI: async (ticketId, ciId) => {
+    try {
+      await api.delete(`/tickets/${ticketId}/cis/${ciId}`);
+      // Reload tickets
+      await get().fetchTickets();
+    } catch (error: any) {
+      console.error('Failed to unlink CI', error);
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
   getMetrics: () => {
     const tickets = get().tickets;
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const openTickets = tickets.filter(ticket => 
+    const openTickets = tickets.filter(ticket =>
       ticket.status !== 'closed' && ticket.status !== 'resolved'
     ).length;
 
     const resolvedToday = tickets.filter(ticket => {
       const updatedAt = new Date(ticket.updatedAt);
-      return ticket.status === 'resolved' && 
-             updatedAt >= today;
+      return ticket.status === 'resolved' &&
+        updatedAt >= today;
     }).length;
 
     // These could be calculated from actual data in a production environment
-    const avgResponseTime = 24; 
+    const avgResponseTime = 24;
     const slaCompliance = 95;
 
     return {

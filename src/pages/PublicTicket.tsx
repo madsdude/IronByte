@@ -26,6 +26,9 @@ const serviceRequestFields = {
     { name: 'network_resource', label: 'Network Resource', type: 'text' },
     { name: 'access_duration', label: 'Access Duration', type: 'select', options: ['Temporary', 'Permanent'] },
   ],
+  'service-request': [
+    { name: 'service_type', label: 'Service Type', type: 'select', options: ['Account Creation', 'Software Installation', 'Firewall Opening', 'Other'] },
+  ],
   'server': [
     { name: 'server_name', label: 'Server Name', type: 'text' },
     { name: 'server_type', label: 'Server Type', type: 'select', options: ['Web', 'Database', 'Application', 'File', 'Other'] },
@@ -50,6 +53,11 @@ const ticketSchema = z.object({
   server_name: z.string().optional(),
   server_type: z.string().optional(),
   environment: z.string().optional(),
+  service_type: z.string().optional(),
+  source_ip: z.string().optional(),
+  destination_ip: z.string().optional(),
+  port: z.string().optional(),
+  protocol: z.string().optional(),
 });
 
 type TicketFormData = z.infer<typeof ticketSchema>;
@@ -100,6 +108,14 @@ export default function PublicTicket() {
             additionalFields[field.name] = data[field.name as keyof TicketFormData] as string;
           }
         });
+      }
+
+      // Add firewall fields if applicable
+      if (selectedCategory === 'service-request' && data.service_type === 'Firewall Opening') {
+        if (data.source_ip) additionalFields.source_ip = data.source_ip;
+        if (data.destination_ip) additionalFields.destination_ip = data.destination_ip;
+        if (data.port) additionalFields.port = data.port;
+        if (data.protocol) additionalFields.protocol = data.protocol;
       }
 
       await api.post('/tickets', {
@@ -288,6 +304,54 @@ export default function PublicTicket() {
                       )}
                     </div>
                   ))}
+
+                  {/* Firewall Opening specific fields */}
+                  {selectedCategory === 'service-request' && watch('service_type') === 'Firewall Opening' && (
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                      <h5 className="text-sm font-medium text-gray-700">Firewall Details</h5>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="source_ip" className="block text-sm font-medium text-gray-700">Source IP</label>
+                          <input
+                            type="text"
+                            {...register('source_ip')}
+                            placeholder="e.g. 192.168.1.100"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="destination_ip" className="block text-sm font-medium text-gray-700">Destination IP</label>
+                          <input
+                            type="text"
+                            {...register('destination_ip')}
+                            placeholder="e.g. 10.0.0.5"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="port" className="block text-sm font-medium text-gray-700">Port</label>
+                          <input
+                            type="text"
+                            {...register('port')}
+                            placeholder="e.g. 443"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="protocol" className="block text-sm font-medium text-gray-700">Protocol</label>
+                          <select
+                            {...register('protocol')}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          >
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                            <option value="ICMP">ICMP</option>
+                            <option value="Both">TCP/UDP</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

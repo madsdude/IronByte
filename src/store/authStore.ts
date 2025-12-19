@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 interface User {
   id: string;
   email: string;
+  role?: string;
 }
 
 interface AuthState {
@@ -11,7 +12,7 @@ interface AuthState {
   loading: boolean;
   setUser: (user: User | null) => void;
   clearUser: () => void;
-  login: (email: string) => Promise<void>;
+  login: (email: string, password?: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -22,9 +23,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('auth-token');
     set({ user: null, loading: false });
   },
-  login: async (email: string) => {
+  login: async (email: string, password?: string) => {
     try {
-      const { user, token } = await api.post('/auth/login', { email });
+      const { user, token } = await api.post('/auth/login', { email, password });
       localStorage.setItem('auth-token', token);
       set({ user, loading: false });
     } catch (error) {

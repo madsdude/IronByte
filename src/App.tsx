@@ -11,6 +11,10 @@ import Closed from './pages/Closed';
 import KnowledgeBasePage from './pages/KnowledgeBase';
 import TicketDetail from './pages/TicketDetail';
 import PublicTicket from './pages/PublicTicket';
+import UserManagement from './pages/UserManagement';
+import ConfigurationItems from './pages/ConfigurationItems';
+import ProblemList from './pages/problems/ProblemList';
+import ProblemDetail from './pages/problems/ProblemDetail';
 import { useTicketStore } from './store/ticketStore';
 import { useAuthStore } from './store/authStore';
 
@@ -64,6 +68,10 @@ function App() {
                       <Route path="/closed" element={<Closed />} />
                       <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
                       <Route path="/tickets/:id" element={<TicketDetail />} />
+                      <Route path="/users" element={<UserManagement />} />
+                      <Route path="/cis" element={<ConfigurationItems />} />
+                      <Route path="/problems" element={<ProblemList />} />
+                      <Route path="/problems/:id" element={<ProblemDetail />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </main>

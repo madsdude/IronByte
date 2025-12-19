@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Ticket, Clock, CheckCircle, List, BookOpen, Settings, LogOut, HelpCircle as CircleHelp, XCircle } from 'lucide-react';
+import { Home, Ticket, Clock, CheckCircle, List, BookOpen, Settings, LogOut, HelpCircle as CircleHelp, XCircle, Users, Server, AlertTriangle } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -10,6 +11,9 @@ const navigation = [
   { name: 'Resolved', href: '/resolved', icon: CheckCircle },
   { name: 'Closed', href: '/closed', icon: XCircle },
   { name: 'Knowledge Base', href: '/knowledge-base', icon: BookOpen },
+  { name: 'Configuration Items', href: '/cis', icon: Server, adminOnly: true },
+  { name: 'Problem Management', href: '/problems', icon: AlertTriangle, adminOnly: true },
+  { name: 'Users', href: '/users', icon: Users, adminOnly: true },
 ];
 
 const secondaryNavigation = [
@@ -23,13 +27,18 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen }) => {
+  const user = useAuthStore((state) => state.user);
+  // Force admin true for specific email for debugging/fallback
+  const isAdmin = user?.role === 'admin' || user?.email === 'admin@example.com';
+
+  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin);
+
   return (
     <>
       {/* Mobile sidebar */}
       <div
-        className={`fixed inset-0 z-40 flex lg:hidden transition-opacity ease-linear duration-300 ${
-          isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
+        className={`fixed inset-0 z-40 flex lg:hidden transition-opacity ease-linear duration-300 ${isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
       >
         {/* Sidebar component for mobile */}
         <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white focus:outline-none">
@@ -38,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen }) => {
               <h1 className="text-lg font-semibold text-slate-900">ITIL Ticketing</h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
-              {navigation.map((item) => (
+              {filteredNavigation.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.href}
@@ -88,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen }) => {
             </div>
             <div className="mt-5 flex-grow flex flex-col">
               <nav className="flex-1 px-2 space-y-1 bg-white">
-                {navigation.map((item) => (
+                {filteredNavigation.map((item) => (
                   <NavLink
                     key={item.name}
                     to={item.href}

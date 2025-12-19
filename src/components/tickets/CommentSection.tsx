@@ -4,21 +4,24 @@ import { useUserStore } from '../../store/userStore';
 import { TicketComment } from '../../types';
 import { formatDistance } from '../../utils/dateUtils';
 import Button from '../ui/Button';
-import { Send } from 'lucide-react';
+import { Send, Trash2 } from 'lucide-react';
 
 interface CommentSectionProps {
   ticketId: string;
   comments: TicketComment[];
   onAddComment: (content: string) => Promise<void>;
+  onDeleteTicket?: () => void;
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({
   ticketId,
   comments,
-  onAddComment
+  onAddComment,
+  onDeleteTicket
 }) => {
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const user = useAuthStore(state => state.user);
   const { users, fetchUser } = useUserStore();
 
@@ -93,7 +96,39 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               onChange={(e) => setNewComment(e.target.value)}
             />
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            {onDeleteTicket && (
+              isDeleting ? (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-red-600">Are you sure?</span>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={onDeleteTicket}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDeleting(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => setIsDeleting(true)}
+                  iconLeft={<Trash2 className="h-4 w-4" />}
+                >
+                  Delete Ticket
+                </Button>
+              )
+            )}
             <Button
               type="submit"
               variant="primary"

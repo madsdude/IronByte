@@ -57,7 +57,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       setIsProcessing(true);
       setError(null);
 
-      await login(data.email);
+      await login(data.email, data.password);
 
       resetSignIn();
       onClose();
@@ -75,7 +75,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       setIsProcessing(true);
 
       // For this simplified backend, login creates the user if they don't exist
-      await login(data.email);
+      await login(data.email, data.password);
 
       setIsSignUp(false);
       resetSignUp();
